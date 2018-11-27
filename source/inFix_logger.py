@@ -4,6 +4,7 @@ This file contains the Logging class which loads all given config information fo
 import datetime
 import os
 import json
+import shutil
 
 class Logger:
 
@@ -34,7 +35,7 @@ class Logger:
         """
         This function zips up all the raw results and saves them in the file specified by config
         """
-        pass
+        shutil.make_archive(self.log_folder + '/results', 'zip', os.path.join(self.session, '..'), os.path.basename(self.session))
 
     def finalize_logs(self):
         """
