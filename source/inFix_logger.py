@@ -28,7 +28,7 @@ class Logger:
         
         self.log_file = open(self.log_folder + '/general_log.txt', 'w')
     
-    def log_write(self, string):
+    def write(self, string):
         self.log_file.write(string)
 
     def zip_raw_results(self):
