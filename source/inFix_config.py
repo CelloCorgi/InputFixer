@@ -18,6 +18,9 @@ class Config:
         """
         return self.theories
 
+    def get_all(self):
+        return self.config
+
     def get_session_path(self):
         return self.session_path
 
