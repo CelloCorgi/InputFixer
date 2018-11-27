@@ -10,14 +10,16 @@ Config is in json format. See the readme for information on how to format the co
 import sys
 import json
 from inFix_config import Config
+from inFix_logger import Logger
+from inFix import InFix
 
 def load_configuration(file_name):
     """
     This function loads the configuration as necessary
     """
-    if len(sys.argv) < 3:
-        print("No configuration file provided. Using default configuration")
-        return Config()
+    if len(sys.argv) < 2:
+        print("No configuration file provided. Please provide configuration")
+        sys.exit()
     try:
         with open(file_name, 'r') as config_file:
             return Config(json.loads(next(config_file)))
@@ -29,4 +31,21 @@ if __name__ == "__main__":
 
     # Load the configiration file
     inFix_config = load_configuration(sys.argv[-1])
+    
+    # Get the log file ready
+    inFix_log = Logger(inFix_config)
+
+    # Make the inFix object
+    input_fixer = InFix(inFix_config, inFix_log)
+
+    # Run the inFix experiments
+    results = input_fixer.find_fixes()
+
+    # Analyze the results
+    
+    # TODO: Modify as needed
+
+    # Log the results
+    inFix_log.zip_raw_results()
+    inFix_log.finalize_logs()
     
