@@ -39,7 +39,8 @@ theory = " "
 config_dict["Theories"] = []
 while len(theory) > 0:
     theory = input("Enter a theory you want to test. If there are no more, press enter: ")
-    config_dict["Theories"].append(theory)
+    if len(theory) > 0:
+        config_dict["Theories"].append(theory)
 
 for theory in config_dict["Theories"]:
     if theory == "gInFix":
