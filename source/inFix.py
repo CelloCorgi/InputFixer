@@ -19,7 +19,7 @@ class InFix:
 
         theories = self.config.get_theories()
         global_theory_config = [self.config.get_specific_theory_info(x) for x in theories]
-        global_theory_factory = [theory_factory.get_theory_solver(i) for i in theories]
+        global_theory_factory = [theory_factory.get_theory_solver(i, global_theory_config[0], self.log) for i in theories]
         theory_results = [[] * len(theories)]
 
         # Now, loop through all the files in path
@@ -48,7 +48,8 @@ class InFix:
             counter += 1
 
             for i in range(len(theories)):
-                answer = global_theory_factory[i].fix(global_theory_config[i], session_config, self.log)
+                print(theories[i])
+                answer = global_theory_factory[i].fix(session_config, os.path.join(base_path, folder),  self.log)
                 theory_results[i].append(answer)
 
             self.log.write('\n')
