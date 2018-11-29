@@ -6,7 +6,7 @@ ANY ADDED THEORY MUST IMPLEMENT THE .fix method
 """
 
 import fixTheories.gInFix as gInFix
-
+import fixTheories.stateMachineHailMary as sm
 def get_theory_solver(theory_name):
     """
     This is the factory function - ya, I know this is hacky, but....
@@ -14,6 +14,8 @@ def get_theory_solver(theory_name):
 
     if theory_name == "gInFix": 
         return gInFix.GInFix()
+    elif theory_name == 'stateMachine':
+        return sm.StateMachine()
     
     # TODO: Add custom theories here
     

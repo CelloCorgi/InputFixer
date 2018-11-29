@@ -11,8 +11,11 @@ class GFactory:
         # TODO: Implement this so supports multiple representations
         return None
     
-    def get_localize(self, rstring)
+    def get_localize(self, rstring):
         return Localize()
+
+    def get_search(self, rstring):
+        return Search()
 
 class GInFix:
 
@@ -21,8 +24,10 @@ class GInFix:
         log.write(global_config)
 
         #TODO: Make versions of representation, fault, fix, operators, and search stratagy
+        gfac = GFactory()
         self.reprsentation = global_config["Represent"]
-        self.Localizer = GFactory().get_localize(global_config["Localizer"])
+        self.Localizer = gfac.get_localize(global_config["Localizer"])
+        self.Search = gfac.getSearch(global_congfig["Search"])
         self.max_num_fix = global_config["MaxNumFix"]
         self.max_num_probe = global_config["MaxNumProbes"]
 
@@ -51,7 +56,7 @@ class GInFix:
             # If this bad has't been looked at yet, do fault and fix localization
             if not current_bad_localized:
                 self.Localizer.find_error_weights(bad_input)
-                self.Localizer.find_fixes(self.operators)
+                #self.Localizer.find_fixes(self.operators)
                 current_bad_localized = True
 
             # Now use the search to choose an error location and a candidate fix
@@ -67,16 +72,28 @@ class GInFix:
         elapsed_time = datetime.datetime.now) - self.start_time
         self.log("The time elapsed was {}".format(elapsed_time))
 
+
+### SEARCH BASE CLASS AND SUB CLASSES ###
+class Search:
+    def __init__(self):
+        pass
+
+    def make_test_input(self):
+        return None
+
 #### FAULT LOCALIZATION ClASSESS ####
 class Localize:
 
     def __init__(self):
         pass
 
-    def find_error_weights(self, bad_input):
+    def find_error_weights(self, bad_input, error_message, error_type):
         """
         finds how likely each token is to be the cause of the error
         """
+        # Look at the message itself and use it as a place to start
+        if error_type == 'ValueError':
+            if 
         return None
 
     def find_fixes(self, possible_operators):
