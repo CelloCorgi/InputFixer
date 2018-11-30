@@ -39,15 +39,39 @@ class StateMachine:
         last_error_message = session_config["ErrorMessage"]
         last_error_message = last_error_message[last_error_message.find(last_error_type) + len(last_error_type):]
         print(last_error_message)
+        self.log.write('The original bad input: {}\n'.format(bad_input))
 
         while num_fixes_found < self.max_num_fix and num_probes_made < self.max_num_probe:
             
             # Take a look at the error message associated with this guy
-            
+            # TODO: Deal with making deep copies of the bad input
             if last_error_type  == "ValueError":
-                pass
+                print("I'm REALLY HERE")    
+                # First look for values to unpack
+                if last_error_message.find('too many values to unpack') >= 0:
+                    
+                    # First split the last guy into tokens
+                    split_last = bad_input[-1].strip().split()
+                    bad_input[-1] = ' '.join(split_last[:-1])
+
+                elif last_error_message.find("not enough values to unpack") >= 0:
+                    
+                    split_last = bad_input[-1].strip().split()
+                    print("SPLIT LAST {}".format(split_last))
+                    split_last.append(split_last[-1])
+                    bad_input[-1] = ' '.join(split_last)
+
+                elif last_error_message.find("invalid literal for int()") >= 0:
+                    bad_input[-1] = '5'
+
+                elif last_error_message.find("could not convert string to float") >= 0:
+                    bad_input[-1] = '3.3'
+
             elif last_error_type == "EOFError":
-                pass
+                
+                # In this case, repete the last line
+                # TODO: Make this work better in the future
+                bad_input.append(bad_input[-1])
             
             # If the input is in the cache at this point or nothing was done before, we need to keep trying to modify it
             """
@@ -65,14 +89,14 @@ class StateMachine:
             self.log.write("Trying input num {}: Input is {}\n".format(num_probes_made, bad_input))
 
             # Next, test this input and see if it does better or worse
-            print(session_config)
+            #print(session_config)
             program_file_name = os.path.join(scenario_folder_path, session_config['UniqueId'] + '_code.py')
             last_error_type, last_error_message = self.try_program(program_file_name, bad_input)
 
             if last_error_type is None:
                 self.log.write('Sucsessfully fixed error\n')
                 num_fixes_found += 1
-            
+                print("SOLVED THE ERROR") 
             else:
                 self.log.write('ERROR: {} :-:-: {}\n'.format(last_error_type, last_error_message))
 
