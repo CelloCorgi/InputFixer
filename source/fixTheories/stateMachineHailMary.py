@@ -22,17 +22,28 @@ class StateMachine:
         self.num_tried = 0
         self.num_fixed = 0
 
-    def find_location_in_input(self, bad_input, element_to_find):
+    def find_location_in_input(self, bad_input, error_message):
         """
         This function searches backwards and returns the index of the element that should be replaced
         TODO: Make it find all instances if possible?
         """
+        
+        stripped_error = error_message.strip()
+        #stripped_error = stripped_errpr[stripped_error.find('Error:'):]
+        last_element = stripped_error[-1]
+        
+        to_look_for = stripped_error[stripped_error.find(last_element)+1:-1]
+        print(stripped_error)
+        print('to look for: ' + str(to_look_for))
+        if len(to_look_for) == 0:
+            print('YUP')
         for i, e in reversed(list(enumerate(bad_input))):
-            element_index = e.rfind(element_to_find)
+            element_index = e.rfind(to_look_for)
             if element_index >= 0:
-                return (i, element_index)
-
-        return None
+                return (i, element_index, len(to_look_for))
+        # If not found, do a random one
+        rand_row = random.randint(0, len(bad_input) - 1)
+        return rand_row, 0, len(bad_input[rand_row])
 
     def replace_element(self):
         pass
@@ -139,22 +150,22 @@ class StateMachine:
                     bad_input[-1] = ' '.join(split_last)
 
                 elif last_error_message.find("invalid literal for int()") >= 0:
-                    if len(bad_input) > 0:
-                        bad_input[-1] = '5'
+                    if len(bad_input) == 0:
+                        bad_input = [str(random.randint(0, 10))]
                     else:
-                        bad_input = ['5']
+                        #TODO: DEAL WIITH TEMPLATE
+                        line, i, l = self.find_location_in_input(bad_input, last_error_message)
+                        bad_input[line] = bad_input[line][:i] + str(random.randint(0, 10)) + bad_input[line][i + l:]
 
                 elif last_error_message.find("could not convert string to float") >= 0:
                     # First, localize the error
-
-                    # See if fits template
-
-                    # If not, random generate
-                    
-                    if len(bad_input) > 0:
-                        bad_input[-1] = '3.3'
+                    print(last_error_message)
+                    if len(bad_input) == 0:
+                        bad_input = [str(random.randint(0, 10)) + '.' + str(random.randint(0, 100))]
                     else:
-                        bad_input = ['3.3']
+                        #TODO: DEAL WIITH TEMPLATE
+                        line, i, l = self.find_location_in_input(bad_input, last_error_message)
+                        bad_input[line] = bad_input[line][:i] + str(random.randint(0, 10)) + '.' + str(random.randint(0, 100))+ bad_input[line][i + l:]
 
             elif last_error_type == "EOFError":
                 

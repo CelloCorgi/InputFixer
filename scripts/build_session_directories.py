@@ -1,4 +1,4 @@
-input_data_json = "all_inputs.json"
+input_data_json = "all_inputs_with_timestamp.json"
 
 session_meta_directory_path = "/home/endremad/Projects/Python_Tutor_Input_Experiments/"
 
@@ -28,7 +28,7 @@ for session_name_base, program, inputs in raw_data:
     bad_inputs = []
     for ip in inputs:
         if ip[1] == 'bad': bad_inputs.append(ip)
-        else: correct_inputs.append(ip[0])
+        else: correct_inputs.append((ip[0], ip[5]))
     
     # Then go through each bad and make a file for it
     for bad in bad_inputs:
@@ -51,5 +51,7 @@ for session_name_base, program, inputs in raw_data:
                  'BadInput': bad[0],
                  'ErrorType' : bad[2],
                  'ErrorMessage' : bad[3],
+                 'ip' : bad[4],
+                 'TimeStamp' : bad[5],
                  'UniqueId' : session_name,
                  'LastIsEmpty': (bad[0][-1] == "")}))
