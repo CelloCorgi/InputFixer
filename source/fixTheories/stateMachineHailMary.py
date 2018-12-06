@@ -249,6 +249,8 @@ class StateMachine:
         if self.found_solution:
             self.log.write('Final correct fix: {}\n'.format(self.final_input))
             self.log.write('Final correct minimized fix: {}\n'.format(self.minimized_input))
+        self.log.write("Num scenario tried: {}\n".format(self.num_tried))
+        self.log.write("Num scenario tried: {}\n".format(self.num_fixed))
         self.log.write('\n\n\n')
 
     def try_program(self, program_file_name, program_input):
