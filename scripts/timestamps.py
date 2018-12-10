@@ -1,6 +1,8 @@
 # This script just looks at the loog file stuff for time stamps
 
 import sys
+import numpy as np
+import statistics
 
 log_file = sys.argv[1]
 
@@ -18,10 +20,14 @@ total_num_probes = 0
 total_num_has_student_fix_time = 0
 
 total_student_time_for_solved = 0
+student_solved_times = []
 total_machine_time_for_solved = 0
+machine_solved_times = []
 
 total_student_time_for_unsolved = 0
+student_unsolved_times = []
 total_machine_time_for_unsolved = 0
+machine_unsolved_times = []
 
 for i in range(len(lf_lines)):
     if lf_lines[i].startswith("SCENARIO") and lf_lines[i + 7].startswith("Student next fix "):
@@ -41,10 +47,13 @@ for i in range(len(lf_lines)):
             total_num_probes += int(lf_lines[i + 3].strip().split(": ")[-1])
             total_student_time_for_solved += student_time
             total_machine_time_for_solved += machine_time
-
+            student_solved_times.append(student_time)
+            machine_solved_times.append(machine_time)
         else:
             total_student_time_for_unsolved += student_time
             total_machine_time_for_unsolved += machine_time
+            student_unsolved_times.append(student_time)
+            machine_unsolved_times.append(machine_time)
 
 print("Total num inputs: {}".format(total_num_inputs))
 print("Total num solutions: {}".format(total_num_solutions))
@@ -52,4 +61,14 @@ print("Total num probes for solved: {}".format(total_num_probes))
 print("Total student time for solved: {}".format(total_student_time_for_solved))
 print("Total machine time for solved: {}".format(total_machine_time_for_solved))
 print("Total student time for unsolved: {}".format(total_student_time_for_unsolved))
-print("Total machine time for unsolved: {}".format(total_machine_time_for_unsolved))
+print("Total machine time for unsolved: {}\n".format(total_machine_time_for_unsolved))
+
+student_solved_times.sort()
+student_unsolved_times.sort()
+#print(student_solved_times)
+#print(student_unsolved_times)
+
+
+print(statistics.median(student_unsolved_times))
+print(statistics.median(student_solved_times))
+

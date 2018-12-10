@@ -22,6 +22,7 @@ class StateMachine:
         self.max_num_probe = global_config["MaxNumProbes"]
         self.num_tried = 0
         self.num_fixed = 0
+        self.bad_input_cache = ['']
 
     def find_location_in_input(self, bad_input, error_message):
         """
@@ -65,7 +66,7 @@ class StateMachine:
         pass
 
     def gen_random_string(self, length):
-        return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(length))
+        return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits + string.digits + '--') for _ in range(length))
 
     def random_mutation(self, bad_input):
         """
@@ -75,29 +76,31 @@ class StateMachine:
         # First, figure out which broad one to do
         # First pick a line to operate on
         if len(bad_input) == 0:
-            bad_input.append(self.gen_random_string(2))
+            bad_input.append(self.gen_random_string(3))
             return bad_input
         
         operation_line = random.randint(0, len(bad_input) - 1)
 
         # Now, see if this line can be broken into tokens
         split_version = bad_input[operation_line].split()
-
+        #TODO: MAKE THIS MORE EFFICIENT
         if len(split_version) <= 1:
             # Then here, we either add, delete, or swap
-            operation_choice = random.randint(0, 4)
+            operation_choice = random.randint(0, 5)
             if operation_choice == 0:
                 bad_input = []
             elif operation_choice == 1:
                 bad_input.pop(operation_line)
             elif operation_choice == 2:
-                bad_input.insert(operation_line, random.choice(bad_input + self.input_history[0]))
+                bad_input.insert(operation_line, random.choice(bad_input + self.input_history[0] + self.input_history[0] + self.input_history[0]))
             elif operation_choice == 3:
-                bad_input.insert(operation_line, self.gen_random_string(2))
+                bad_input.insert(operation_line, random.choice(self.bad_input_cache))
             elif operation_choice == 4:
-                bad_input[operation_line] = bad_input[operation_line] + ' ' + self.gen_random_string(2)
+                bad_input.insert(operation_line, self.gen_random_string(3))
+            elif operation_choice == 5:
+                bad_input[operation_line] = bad_input[operation_line] + ' ' + self.gen_random_string(3)
         else:
-            operation_choice = random.randint(0, 3)
+            operation_choice = random.randint(0, 4)
             if operation_choice == 0:
                 bad_input[operation_line] = ''
             elif operation_choice == 1:
@@ -107,18 +110,32 @@ class StateMachine:
                 split_version[random.randint(0, len(split_version) - 1)] = random.choice(bad_input + self.input_history[0])
                 bad_input[operation_line] = ' '.join(split_version)
             elif operation_choice == 3:
-                split_version[random.randint(0, len(split_version) - 1)] = self.gen_random_string(2)
-                bad_input[operation_line] = ' '.join(split_version)        
+                split_version[random.randint(0, len(split_version) - 1)] = self.gen_random_string(3)
+                bad_input[operation_line] = ' '.join(split_version)
+            elif operation_choice == 4:
+                split_version[random.randint(0, len(split_version) - 1)] = random.choice(self.bad_input_cache)
+                bad_input[operation_line] = ' '.join(split_version)
+
         return bad_input
+
+    def init_scenario(self, session_config):
+        self.input_history = []
+        self.num_tried += 1
+        self.found_solution = False
+        if len(session_config["BadInput"]) > 15:
+            self.bad_input_cache.extend(session_config["BadInput"][:15])
+        elif session_config["BadInput"][-1] == '':
+            self.bad_input_cache.extend(session_config["BadInput"][-1])
+        else:
+            self.bad_input_cache.extend(session_config["BadInput"])
     
     def fix(self, session_config, scenario_folder_path, log):
         """
         This is the only method that should be called from outside this file
         It runs the overall fixer
         """
-        self.input_history = []
-        self.num_tried += 1
-        self.found_solution = False
+        self.init_scenario(session_config)
+        
         # Convert the bad input into its modifiable datastructure form -> a list of lists
         print(session_config)
         bad_input = deepcopy(session_config["BadInput"])
@@ -160,16 +177,19 @@ class StateMachine:
                 elif last_error_message.find("not enough values to unpack") >= 0:
                     if len(bad_input) == 0: bad_input.append('')
                     split_last = bad_input[-1].strip().split()
-                    print("SPLIT LAST {}".format(split_last))
-                    if len(split_last) > 0:
-                        split_last.append(split_last[-1])
+                    if len(split_last) > 15:
+                        bad_input = bad_input[:-1]
+                    
                     else:
-                        split_last = ['1']
-                    bad_input[-1] = ' '.join(split_last)
+                        if len(split_last) > 0:
+                            split_last.append(split_last[-1])
+                        else:
+                            split_last = [self.gen_random_string(3)]
+                        bad_input[-1] = ' '.join(split_last)
 
                 elif last_error_message.find("invalid literal for int()") >= 0:
                     if len(bad_input) == 0:
-                        bad_input = [str(random.randint(0, 10))]
+                        bad_input = [str(random.randint(-1, 15))]
                     else:
                         #TODO: DEAL WIITH TEMPLATE
                         line, i, l = self.find_location_in_input(bad_input, last_error_message)
@@ -178,19 +198,19 @@ class StateMachine:
                 elif last_error_message.find("could not convert string to float") >= 0:
                     # First, localize the error
                     if len(bad_input) == 0:
-                        bad_input = [str(random.randint(0, 10)) + '.' + str(random.randint(0, 100))]
+                        bad_input = [str(random.randint(-1, 15)) + '.' + str(random.randint(0, 100))]
                     else:
                         #TODO: DEAL WIITH TEMPLATE
                         line, i, l = self.find_location_in_input(bad_input, last_error_message)
-                        bad_input[line] = bad_input[line][:i] + str(random.randint(0, 10)) + '.' + str(random.randint(0, 100))+ bad_input[line][i + l:]
+                        bad_input[line] = bad_input[line][:i] + str(random.randint(-1, 15)) + '.' + str(random.randint(0, 100))+ bad_input[line][i + l:]
 
             elif last_error_type == "EOFError":
                 # In this case, repete the last line
                 # TODO: Make this work better in the future
                 if len(bad_input) > 0:
-                    bad_input.append(random.choice(bad_input))
+                    bad_input.append(random.choice(bad_input + self.input_history[0] + [self.gen_random_string(3)]))
                 else:
-                    bad_input.append(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5)))
+                    bad_input.append(self.gen_random_string(3))
             
             # If the input is in the cache at this point or nothing was done before, we need to keep trying to modify it
             while str(bad_input) in cache:
@@ -249,6 +269,7 @@ class StateMachine:
         if self.found_solution:
             self.log.write('Final correct fix: {}\n'.format(self.final_input))
             self.log.write('Final correct minimized fix: {}\n'.format(self.minimized_input))
+        self.log.write('Correct Student Inputs: {}'.format(scenario_config['CorrectInputs']))
         self.log.write("Num scenario tried: {}\n".format(self.num_tried))
         self.log.write("Num scenario tried: {}\n".format(self.num_fixed))
         self.log.write('\n\n\n')
