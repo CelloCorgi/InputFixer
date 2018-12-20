@@ -2,6 +2,7 @@
 This is a hail mary approach based off my state machine idea
 """
 from datetime import datetime
+import json
 import time
 import os
 import subprocess
@@ -265,11 +266,11 @@ class StateMachine:
                 self.log.write('Student next fix time: {}\n'.format(correct_input[1]))
                 break
         self.log.write('Original bad input: {}\n'.format(scenario_config['BadInput']))
-        self.log.write('Original Error Type: {}\n'.format(scenario_config["ErrorMessage"]))
+        self.log.write('Original Error Type: {}\n'.format(scenario_config["ErrorType"]))
         if self.found_solution:
-            self.log.write('Final correct fix: {}\n'.format(self.final_input))
-            self.log.write('Final correct minimized fix: {}\n'.format(self.minimized_input))
-        self.log.write('Correct Student Inputs: {}'.format(scenario_config['CorrectInputs']))
+            self.log.write('Final correct fix: {}\n'.format(json.dumps(self.final_input)))
+            self.log.write('Final correct minimized fix: {}\n'.format(json.dumps(self.minimized_input)))
+        self.log.write('Correct Student Inputs: {}'.format(json.dumps(scenario_config['CorrectInputs'])))
         self.log.write("Num scenario tried: {}\n".format(self.num_tried))
         self.log.write("Num scenario tried: {}\n".format(self.num_fixed))
         self.log.write('\n\n\n')
