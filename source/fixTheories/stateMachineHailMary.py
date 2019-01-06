@@ -268,11 +268,11 @@ class StateMachine:
         self.log.write('Original bad input: {}\n'.format(scenario_config['BadInput']))
         self.log.write('Original Error Type: {}\n'.format(scenario_config["ErrorType"]))
         if self.found_solution:
-            self.log.write('Final correct fix: {}\n'.format(json.dumps(self.final_input)))
-            self.log.write('Final correct minimized fix: {}\n'.format(json.dumps(self.minimized_input)))
-        self.log.write('Correct Student Inputs: {}'.format(json.dumps(scenario_config['CorrectInputs'])))
-        self.log.write("Num scenario tried: {}\n".format(self.num_tried))
-        self.log.write("Num scenario tried: {}\n".format(self.num_fixed))
+            self.log.write('Final correct fix: \n{}\n'.format(json.dumps(self.final_input)))
+            self.log.write('Final correct minimized fix: \n{}\n'.format(json.dumps(self.minimized_input)))
+        self.log.write('Correct Student Inputs: \n{}'.format(json.dumps(scenario_config['CorrectInputs'])))
+        self.log.write("\nNum scenario tried: {}\n".format(self.num_tried))
+        self.log.write("Num scenario fixed: {}\n".format(self.num_fixed))
         self.log.write('\n\n\n')
 
     def try_program(self, program_file_name, program_input):
