@@ -7,7 +7,7 @@ import coverage
 import subprocess
 import json
 import os
-
+import statistics
 def load_repair_log(log_file_path):
     """
     Loads Repiar log into a list where each sub part looks like:
@@ -32,11 +32,18 @@ def load_repair_log(log_file_path):
                 to_return[-1]["FoundSolution"] = bool(line.strip().split(": ")[-1])
             if line.startswith("Final correct fix:"):
                 to_return[-1]["MachineFix"] = json.loads(next(log_file))
+            if line.startswith("Final correct minimized fix:"):
+                to_return[-1]["MinimizedMachineFix"] = json.loads(next(log_file))
             if line.startswith("Final minimized fix:"):
                 to_return[-1]["MinimizedMachineFix"] = json.loads(next(log_file))
             if line.startswith("Correct Student Inputs:"):
                 to_return[-1]["StudentFixes"] = json.loads(next(log_file))
-
+            if line.startswith("Original bad input"):
+                to_return[-1]["OriginalBadInput"] = line.strip().split(": ")[-1]
+            if line.startswith("Number of Probes"):
+                to_return[-1]["NumProbes"] = int(line.strip().split(": ")[-1])
+            if line.startswith("Original Error Type"):
+                to_return[-1]["OriginalErrorType"] = line.strip().split(": ")[-1]
         # Here, I just load all the lines so I have it -> not coverage specific in this function
 
     log_file.close()
@@ -55,7 +62,13 @@ def report_coverage():
         return None
 
     # Here, go through the things
-    print(report)
+    report = str(report)
+    raw_coverage = report[report.find('.py') + 3:]
+    if report.find('.py') <= 1: return None
+
+    raw_coverage = raw_coverage.strip().split()
+    raw_coverage[-1] = raw_coverage[-1].strip()[:-3]
+    return raw_coverage
 
 def run_program_with_coverage(program_file_name, program_input):
     """
@@ -72,7 +85,7 @@ def run_program_with_coverage(program_file_name, program_input):
                 stdout=subprocess.PIPE,
                 universal_newlines=True)
     except Exception as e:
-        pass
+        return -1
 
 
 def compare_coverage(result_info, useMinimizedFix=True):
@@ -91,33 +104,78 @@ def compare_coverage(result_info, useMinimizedFix=True):
     
     # Here, we get the coverage from the student fix
     print('Student')
-    run_program_with_coverage(file_name, result_info["StudentFixes"][0][0])
-    
+    x = run_program_with_coverage(file_name, result_info["StudentFixes"][0][0])
+    if x == -1: return None
+
     # And we analyze that coverage
-    report_coverage()
+    student_coverage = report_coverage()
     # And erase the coverage record
     erase_coverage()
 
     # Now we get the coverage from the machine fix
     print('Machine')
-    run_program_with_coverage(file_name, result_info["MachineFix"])
-    
+    x = run_program_with_coverage(file_name, result_info["MachineFix"])
+    if x == -1: return None
+
     # And we analyze that coverage
-    report_coverage()
+    machine_coverage = report_coverage()
 
     # And erase the coverage record
     erase_coverage()
 
-    x = open(file_name, 'r')
-    y = ''
-    for line in x:
-        y+= line
+    if machine_coverage is None or student_coverage is None: return None
 
-    print(y)
-    print()
-    print()
-    print()
-    return None
+    return student_coverage, machine_coverage
+
+def get_coverage_from_raw(raw_coverage):
+    raw_coverage = raw_coverage[raw_coverage.find('.py') + 3:-1]
+    raw_coverage = raw_coverage.strip().split()
+    print(raw_coverage)
+    
+def file_format_hac():
+    f = open('coverage_results.json', 'r')
+    work = json.load(f)
+    f.close()
+
+    print(len(work[0]))
+    print(len(work[1]))
+    num = 0
+    for i in range(len(work[1])):
+        if work[1][i] is not None and len(work[1][i]) == 2:
+            num += 1
+    print(num)
+    
+    # This is where I do the coverage analysis
+    student_coverages = []
+    machine_coverages = []
+    num_branches = []
+    for i in range(len(work[1])):
+        if work[1][i] is not None:
+            num_branches.append(int(work[1][i][0][0]))
+        if work[1][i] is not None and len(work[1][i]) == 2:
+            student_coverages.append(int(work[1][i][0][4][:-1]))
+            machine_coverages.append(int(work[1][i][1][4][:-1]))
+            result_info = work[0][i]
+            file_name = os.path.join('/home/endremad/Projects/Python_Tutor_Input_Experiments/PythonTutor_Input_Data_Sessions', result_info['Id'], result_info['Id'] + '_code.py') 
+            print(work[0][i], flush=True)
+            print()
+            print(work[1][i], flush=True)
+            print()
+            with open(file_name, 'r') as code:
+                z = ""
+                for line in code:
+                    z += line
+                print(z, flush=True)
+            print()
+            print()
+            print()
+            print()
+            if len(student_coverages) == 100:
+                break
+    print(statistics.median(student_coverages))
+    print(statistics.median(machine_coverages))
+    print(statistics.median(num_branches))
+
 
 if __name__ == "__main__":
 
@@ -126,8 +184,14 @@ if __name__ == "__main__":
     #print(scenario_results)
 
     # Then calculate the coverage information
+    #coverages = file_format_hac()
+
     coverages = [compare_coverage(i, True) for i in scenario_results]
 
+    to_dump = [scenario_results, coverages]
+    with open('coverage_results.json', 'w') as o:
+        json.dump(to_dump, o)
+    
     # Then analyize the coverage information
     print(coverages)
-
+    
