@@ -92,7 +92,7 @@ def get_coverage(filename, program_input, care_about_errors=True):
     This function returns a dictionary containing the coverage of the input
     """
 
-    x = run_program_with_coverage(file_name, program_input)
+    x = run_program_with_coverage(filename, program_input)
     if care_about_errors and x == -1: return None
 
     # And we analyze that coverage
