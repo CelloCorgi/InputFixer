@@ -87,6 +87,22 @@ def run_program_with_coverage(program_file_name, program_input):
     except Exception as e:
         return -1
 
+def get_coverage(filename, program_input, care_about_errors=True):
+    """
+    This function returns a dictionary containing the coverage of the input
+    """
+
+    x = run_program_with_coverage(file_name, program_input)
+    if care_about_errors and x == -1: return None
+
+    # And we analyze that coverage
+    coverage_results = report_coverage()
+    # And erase the coverage record
+    erase_coverage()
+
+    return coverage_results
+
+
 
 def compare_coverage(result_info, useMinimizedFix=True):
     """
@@ -104,25 +120,13 @@ def compare_coverage(result_info, useMinimizedFix=True):
     
     # Here, we get the coverage from the student fix
     print('Student')
-    x = run_program_with_coverage(file_name, result_info["StudentFixes"][0][0])
-    if x == -1: return None
-
-    # And we analyze that coverage
-    student_coverage = report_coverage()
-    # And erase the coverage record
-    erase_coverage()
-
+    student_coverage = get_coverage(file_name, result_info["StudentFixes"][0][0], True)
+    
+    
     # Now we get the coverage from the machine fix
     print('Machine')
-    x = run_program_with_coverage(file_name, result_info["MachineFix"])
-    if x == -1: return None
-
-    # And we analyze that coverage
-    machine_coverage = report_coverage()
-
-    # And erase the coverage record
-    erase_coverage()
-
+    machine_coverage = get_coverage(file_name, result_info["MachineFix"], True)
+    
     if machine_coverage is None or student_coverage is None: return None
 
     return student_coverage, machine_coverage

@@ -12,6 +12,8 @@ import os
 import subprocess
 import shutil
 from collections import defaultdict
+import test_coverage
+
 test_folder = session_meta_directory_path + session_meta_directory_name
 
 # Load the input data
@@ -41,10 +43,17 @@ for session_name_base, program, inputs in raw_data:
         os.makedirs(session_folder)
         
         # Add all the files to each folder as needed
-        with open(session_folder + '/' + session_name + '_code.py', 'w') as out:
+        code_filename = session_folder +'/' + session_name + '_code.py'
+        with open(code_filename, 'w') as out:
             out.write(program)
         with open(session_folder + '/' + session_name + '_bad_input.txt', 'w') as out:
             out.write('\n'.join(bad[0]) + '\n')
+        
+        # Calcuate the coverage this bad-input achieves
+        coverage_info = test_coverage.run_program_with_coverage(code_filename, bad[0])        
+        print("Coverage Information")
+        print(coverage_info)
+
         with open(session_folder + '/' + session_name + '_additional_info.json', 'w') as out:
             out.write(json.dumps(
                 {'CorrectInputs': correct_inputs,
