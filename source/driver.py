@@ -8,10 +8,18 @@ Config is in json format. See the readme for information on how to format the co
 """
 
 import sys
+
+# Make sure I have access to my script functions if I need them
+# TODO: Should I insert into the beginning of the path list?
+sys.path.append('../scripts')
+
 import json
 from inFix_config import Config
 from inFix_logger import Logger
 from inFix import InFix
+
+
+
 
 def load_configuration(file_name):
     """
