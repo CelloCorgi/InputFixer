@@ -3,11 +3,15 @@ This file will compare the coverage of the student fix and the generated fix for
 for which a solution was found by InFixPy
 """
 import sys
+import random
 import coverage
 import subprocess
 import json
 import os
 import statistics
+
+counter = 0
+
 def load_repair_log(log_file_path):
     """
     Loads Repiar log into a list where each sub part looks like:
@@ -49,17 +53,22 @@ def load_repair_log(log_file_path):
     log_file.close()
     return to_return
 
-def erase_coverage():
+def erase_coverage(coverage_file_name):
     try:
-        subprocess.run(['coverage', 'erase'], check=True, timeout=30)
+        subprocess.run('COVERAGE_FILE=' + coverage_file_name + ' coverage erase', 
+            check=True, 
+            timeout=30,
+            shell=True)
     except Exception as e:
-        pass
+        print(e)
+        print('erase')
 
-def report_coverage():
+def report_coverage(coverage_file_name):
     try:
-        report = subprocess.check_output(['coverage', 'report', '-m'])
+        report = subprocess.check_output('COVERAGE_FILE=' + coverage_file_name + ' coverage report -m',
+                shell=True)
     except Exception as e:
-        return None
+        print(e)
 
     # Here, go through the things
     report = str(report)
@@ -70,7 +79,7 @@ def report_coverage():
     raw_coverage[-1] = raw_coverage[-1].strip()[:-3]
     return raw_coverage
 
-def run_program_with_coverage(program_file_name, program_input):
+def run_program_with_coverage(program_file_name, program_input, coverage_file_name):
     """
     This function runs coverage on the program with the given input
     """
@@ -78,27 +87,29 @@ def run_program_with_coverage(program_file_name, program_input):
     
     # now run the program
     try:
-        subprocess.run(['coverage', 'run', '--include=*_code.py', '--branch',  program_file_name],
+        subprocess.run('COVERAGE_FILE=' + coverage_file_name + ' coverage run --include=*_code.py --branch ' + program_file_name,
                 check=True,
-                timeout=60,
+                timeout=5,
+                shell=True,
                 input=inputs,                                   
                 stdout=subprocess.PIPE,
                 universal_newlines=True)
     except Exception as e:
+        print('HERE')
+        print(e) 
         return -1
 
-def get_coverage(filename, program_input, care_about_errors=True):
+def get_coverage(filename, program_input, cov_file_name, care_about_errors=True):
     """
     This function returns a dictionary containing the coverage of the input
     """
-
-    x = run_program_with_coverage(filename, program_input)
+    x = run_program_with_coverage(filename, program_input, cov_file_name)
     if care_about_errors and x == -1: return None
 
     # And we analyze that coverage
-    coverage_results = report_coverage()
+    coverage_results = report_coverage(cov_file_name)
     # And erase the coverage record
-    erase_coverage()
+    erase_coverage(cov_file_name)
 
     return coverage_results
 
@@ -109,23 +120,29 @@ def compare_coverage(result_info, useMinimizedFix=True):
     This function sees which program -> the student or the machine gets better coverage
     Returns None if there is no student correct answer or if there was no machine correct answer
     """
+    global counter
     if not "MachineFix" in result_info: return None
     if not "StudentFixes" in result_info: return None
     if len(result_info["StudentFixes"]) == 0: return None 
     # If we get here, there was both a machine and a student fix
     file_name = os.path.join('/home/endremad/Projects/Python_Tutor_Input_Experiments/PythonTutor_Input_Data_Sessions', result_info['Id'], result_info['Id'] + '_code.py') 
     
-    
+    counter += 1
+    print(counter)
     print(result_info)
     
     # Here, we get the coverage from the student fix
     print('Student')
-    student_coverage = get_coverage(file_name, result_info["StudentFixes"][0][0], True)
+    
+    # Make the coverage filename for this run
+    cov_file_name = result_info['Id']
+    
+    student_coverage = get_coverage(file_name, result_info["StudentFixes"][0][0], cov_file_name, True)
     
     
     # Now we get the coverage from the machine fix
     print('Machine')
-    machine_coverage = get_coverage(file_name, result_info["MachineFix"], True)
+    machine_coverage = get_coverage(file_name, result_info["MachineFix"], cov_file_name, True)
     
     if machine_coverage is None or student_coverage is None: return None
 
@@ -179,17 +196,15 @@ def file_format_hac():
     print(statistics.median(student_coverages))
     print(statistics.median(machine_coverages))
     print(statistics.median(num_branches))
-
-
+    print(statistics.mean(student_coverages))
+    print(statistics.mean(machine_coverages))
+    print(statistics.stdev(student_coverages))
+    print(statistics.stdev(machine_coverages))
 if __name__ == "__main__":
 
     # First, load the log information
     scenario_results = load_repair_log(sys.argv[-1])
     #print(scenario_results)
-
-    # Then calculate the coverage information
-    #coverages = file_format_hac()
-
     coverages = [compare_coverage(i, True) for i in scenario_results]
 
     to_dump = [scenario_results, coverages]
@@ -197,5 +212,7 @@ if __name__ == "__main__":
         json.dump(to_dump, o)
     
     # Then analyize the coverage information
-    print(coverages)
+    #print(coverages)
     
+    # Then calculate the coverage information
+    coverages = file_format_hac()
