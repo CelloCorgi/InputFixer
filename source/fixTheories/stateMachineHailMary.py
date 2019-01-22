@@ -9,22 +9,85 @@ import subprocess
 from copy import deepcopy
 import random
 import string
-
+import test_coverage
 
 class StateMachine:
 
     def __init__(self, global_config, log):
-        self.isFirst = True
+        """
+        This function is only run once when the first scenrio is run
+        """
         log.write(str(global_config))
         self.log = log
         #TODO: Make versions of representation, fault, fix, operators, and search stratagy
         print(global_config)
         self.max_num_fix = global_config["MaxNumFix"]
         self.max_num_probe = global_config["MaxNumProbes"]
+        self.testCoverage = global_config["UseCoverage"]
         self.num_tried = 0
         self.num_fixed = 0
-        self.bad_input_cache = ['']
+        self.bad_input_cache = [''] #TODO: Add good input cache?
+        self.num_worse = 0
+    
+    def init_scenario(self, session_config, isFirst):
+        """
+        This function initializes the specific run of a scenario
+        isFirst says if this is the first run of the scenario -> there can be multiple runs
+        depending on the coverage option
+        """
+        if isFirst:
+            self.input_history = []
+            self.num_tried += 1
+        
+            if len(session_config["BadInput"]) > 15:
+                self.bad_input_cache.extend(session_config["BadInput"][:15])
+            elif session_config["BadInput"][-1] == '':
+                self.bad_input_cache.extend(session_config["BadInput"][-1])
+            else:
+                self.bad_input_cache.extend(session_config["BadInput"])
+            self.cache = {str(session_config["BadInput"])}
+            
+        self.found_solution = False
+        self.coverage_info = session_config["CoverageInfo"]
+        
+    
+    def fix(self, scenario_config, scenario_folder_path, log):
+        """
+        This function is the only one that runs from the main file, 
+        chooses what version of coverage to use
+        """
+        
+        self.log.write('NEXT SCENARIO\n')
+        
+        # Log which scenario we are doing
+        self.log.write('{}\n'.format(json.dumps(scenario_config)))
 
+        # Initialize the scenario run
+        self.init_scenario(scenario_config, True)
+        
+        # If we don't need to use coverage
+        if not self.testCoverage:
+            results = self.fix_body(scenario_config, scenario_folder_path, log)
+
+        # If we want to use the best coverage of multiple runs:
+        #TODO: Actually make parellel
+        elif isinstance(self.testCoverage, int):
+            results = []
+            for i in range(self.testCoverage):
+                results.append(self.fix_body(scenario_config, scenario_folder_path, log))
+                self.init_scenario(scenario_config, False)
+
+        # This is the two phase approach where I do random, then for the rest of the budget try improving coverage
+        elif self.testCoverage == "TwoPhase":
+            pass
+
+        # This one uses static analysis to be smart about what coverage it chooses
+        elif self.testCoverage == "SmartCoverage":
+            pass
+        
+        # Log the results
+        self.log.write('{}\n'.format(json.dumps(results)))
+    
     def find_location_in_input(self, bad_input, error_message):
         """
         This function searches backwards and returns the index of the element that should be replaced
@@ -119,56 +182,36 @@ class StateMachine:
 
         return bad_input
 
-    def init_scenario(self, session_config):
-        self.input_history = []
-        self.num_tried += 1
-        self.found_solution = False
-        if len(session_config["BadInput"]) > 15:
-            self.bad_input_cache.extend(session_config["BadInput"][:15])
-        elif session_config["BadInput"][-1] == '':
-            self.bad_input_cache.extend(session_config["BadInput"][-1])
-        else:
-            self.bad_input_cache.extend(session_config["BadInput"])
     
-    def fix(self, session_config, scenario_folder_path, log):
+    def fix_body(self, session_config, scenario_folder_path, log):
         """
-        This is the only method that should be called from outside this file
-        It runs the overall fixer
-        """
-        self.init_scenario(session_config)
-        
-        # Convert the bad input into its modifiable datastructure form -> a list of lists
-        print(session_config)
+        This function tries to do the repair the original way with error message and random
+        templates
+        """ 
+
+        # Set up the local variables for this fix
         bad_input = deepcopy(session_config["BadInput"])
-
-        # Initialize the cache with the original bad, so we don't try the same result twice
-        cache = {str(bad_input)}
-
         num_fixes_found = 0
         num_probes_made = 0
-        last_error_type = session_config["ErrorType"]
-        last_error_message = session_config["ErrorMessage"]
+        last_error_type = deepcopy(session_config["ErrorType"])
+        last_error_message = deepcopy(session_config["ErrorMessage"])
         last_error_message = last_error_message[last_error_message.find(last_error_type) + len(last_error_type):]
-        print(last_error_message)
 
-        self.log.write('ORIGINAL BAD INPUT: {}\n'.format(bad_input))
-        self.log.write('ORIGINAL ERROR: {} :-:-: {}\n'.format(last_error_type, last_error_message))
-        
         # Record the starting time
         self.start_timer()
         
         while num_fixes_found < self.max_num_fix and num_probes_made < self.max_num_probe:
+            print('message was: ' + last_error_type)
             if last_error_type == "" or last_error_type == ":":
+                print('ERROR -> message was: ' + last_error_type)
                 num_probes_made = self.max_num_probe
-                self.log.write('NOTE: PROGRAM HAS NO ERROR MESSAGE, SO BEING SKIPPED\n')
-                return
+                return {}
 
             self.input_history.append(deepcopy(bad_input))
             
-            # Take a look at the error message associated with this guy
-            # TODO: Deal with making deep copies of the bad input
+            # This section applies the error message templateas
+            #TODO: Put in own function
             if last_error_type  == "ValueError":
-                
                 #TODO: Don't have this fault location always be the last input line
                 # First look for values to unpack
                 if last_error_message.find('too many values to unpack') >= 0:
@@ -213,43 +256,45 @@ class StateMachine:
                 else:
                     bad_input.append(self.gen_random_string(3))
             
-            # If the input is in the cache at this point or nothing was done before, we need to keep trying to modify it
-            while str(bad_input) in cache:
+            # This section applies the random mutation templates as needed
+            while str(bad_input) in self.cache:
                 bad_input = self.random_mutation(bad_input)
 
-            print(num_probes_made)
-            print(scenario_folder_path)
             # Ok, now add the modified version back into the cache
-            cache.add(str(bad_input))
-
-            # Next, log what I am doing
+            self.cache.add(str(bad_input))
             num_probes_made += 1
-            self.log.write("Trying input num {}: Input is {}\n".format(num_probes_made, bad_input))
 
-            # Next, test this input and see if it does better or worse
-            #print(session_config)
+            # Next, run the program to see if it was fixed
             program_file_name = os.path.join(scenario_folder_path, session_config['UniqueId'] + '_code.py')
             last_error_type, last_error_message, full_error = self.try_program(program_file_name, bad_input)
 
             if last_error_type is None:
-                self.log.write('SOLVED THE ERROR\n')
                 num_fixes_found += 1
                 print("SOLVED THE ERROR")
                 self.found_solution = True
                 self.final_input = bad_input
                 self.minimized_input = self.minimize(program_file_name, deepcopy(bad_input))
                 self.num_fixed += 1
-            else:
-                self.log.write('STILL HAS ERROR: {} :-:-: {}\n'.format(last_error_type, last_error_message))
-
+                self.solution_coverage = self.get_solution_coverage(program_file_name, bad_input)
         
-        # At this point, we have finished all of our probes for this scenario. It's time for cleanup
-        # Record the ending time
         self.end_timer()
-        self.wrap_up_scenario_log(session_config, num_probes_made)
-        
+
         print("Num tried: {}".format(self.num_tried))
-        print("Num fixed: {}".format(self.num_fixed))
+        print("Num fixed: {}".format(self.num_fixed)) 
+        return self.collect_fix_results(num_probes_made)
+
+    def collect_fix_results(self, num_probes_made):
+        results = {}
+        results['FoundSolution'] = self.found_solution
+        results['NumProbesMade'] = num_probes_made
+        results['StartTime'] = self.start_time
+        results['EndTime'] = self.end_time
+        if self.found_solution:
+            results['FinalCoverage'] = self.solution_coverage
+            results['FinalSolution'] = deepcopy(self.final_input)
+            results['FinalMinimizedSolution'] = deepcopy(self.minimized_input)
+        results['InputHistory'] = deepcopy(self.input_history)
+        return results
 
     def wrap_up_scenario_log(self, scenario_config, num_probes_made):
         self.log.write('\nSCENARIO {} WRAP_UP:\n'.format(scenario_config['UniqueId']))
@@ -275,6 +320,11 @@ class StateMachine:
         self.log.write("Num scenario fixed: {}\n".format(self.num_fixed))
         self.log.write('\n\n\n')
 
+    
+    def get_solution_coverage(self, program_file_name, program_input):
+        cov_file_name = self.gen_random_string(20)
+        return test_coverage.get_coverage(program_file_name, program_input, cov_file_name, False)
+    
     def try_program(self, program_file_name, program_input):
         """
         This function runs the program with the specidied input and sees if it errors out or not
@@ -300,6 +350,7 @@ class StateMachine:
             important = e.stderr.strip().split('\n')[-1].strip()
             run_result = important[:important.find(':')]
             error_last_line = important[important.find(':'):]
+
         return run_result, error_last_line, full_error
 
     def minimize(self, program_file_name, program_input):
