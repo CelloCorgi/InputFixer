@@ -10,6 +10,7 @@ from copy import deepcopy
 import random
 import string
 import test_coverage
+import fixTheories.static_analysis as static_analysis
 
 class StateMachine:
 
@@ -28,6 +29,7 @@ class StateMachine:
         self.num_fixed = 0
         self.bad_input_cache = [''] #TODO: Add good input cache?
         self.num_worse = 0
+        self.string_literals = []
     
     def init_scenario(self, session_config, isFirst):
         """
@@ -49,6 +51,7 @@ class StateMachine:
             
         self.found_solution = False
         self.coverage_info = session_config["CoverageInfo"]
+        self.string_literals = []
         
     
     def fix(self, scenario_config, scenario_folder_path, log):
@@ -83,8 +86,17 @@ class StateMachine:
 
         # This one uses static analysis to be smart about what coverage it chooses
         elif self.testCoverage == "SmartCoverage":
-            pass
-        
+            tokens = static_analysis.tokenize_program(os.path.join(scenario_folder_path, scenario_config['UniqueId'] + '_code.py'))
+            use_g_templates = static_analysis.use_grammar_templates(tokens)
+            if use_g_templates and False:
+                results = []
+                print('LOL')
+            else:
+                self.string_literals = static_analysis.collect_string_literals(tokens)
+                results = self.fix_body(scenario_config, scenario_folder_path, log) 
+                print(self.num_worse)
+                results['GrammarTemplateUsed'] = False
+
         # Log the results
         self.log.write('{}\n'.format(json.dumps(results)))
     
@@ -99,9 +111,9 @@ class StateMachine:
         last_element = stripped_error[-1]
         
         to_look_for = stripped_error[stripped_error.find(last_element)+1:-1]
-        print(stripped_error)
-        print('to look for: ' + str(to_look_for))
-        print(len(to_look_for))
+        #print(stripped_error)
+        #print('to look for: ' + str(to_look_for))
+        #print(len(to_look_for))
 
         for i, e in reversed(list(enumerate(bad_input))):
             if len(to_look_for) == 0 and len(e) == 0:
@@ -130,6 +142,8 @@ class StateMachine:
         pass
 
     def gen_random_string(self, length):
+        if len(self.string_literals) > 0 and random.choice('01') == '1':
+            return random.choice(self.string_literals)
         return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits + string.digits + '--') for _ in range(length))
 
     def random_mutation(self, bad_input):
@@ -156,7 +170,7 @@ class StateMachine:
             elif operation_choice == 1:
                 bad_input.pop(operation_line)
             elif operation_choice == 2:
-                bad_input.insert(operation_line, random.choice(bad_input + self.input_history[0] + self.input_history[0] + self.input_history[0]))
+                bad_input.insert(operation_line, random.choice(bad_input + self.input_history[0] + self.input_history[0] + self.input_history[0] + self.string_literals))
             elif operation_choice == 3:
                 bad_input.insert(operation_line, random.choice(self.bad_input_cache))
             elif operation_choice == 4:
@@ -171,7 +185,7 @@ class StateMachine:
                 bad_input.pop(operation_line)
                 bad_input[operation_line:operation_line] = split_version
             elif operation_choice == 2:
-                split_version[random.randint(0, len(split_version) - 1)] = random.choice(bad_input + self.input_history[0])
+                split_version[random.randint(0, len(split_version) - 1)] = random.choice(bad_input + self.input_history[0] + self.string_literals)
                 bad_input[operation_line] = ' '.join(split_version)
             elif operation_choice == 3:
                 split_version[random.randint(0, len(split_version) - 1)] = self.gen_random_string(3)
@@ -201,9 +215,9 @@ class StateMachine:
         self.start_timer()
         
         while num_fixes_found < self.max_num_fix and num_probes_made < self.max_num_probe:
-            print('message was: ' + last_error_type)
+            #print('message was: ' + last_error_type)
             if last_error_type == "" or last_error_type == ":":
-                print('ERROR -> message was: ' + last_error_type)
+                #print('ERROR -> message was: ' + last_error_type)
                 num_probes_made = self.max_num_probe
                 return {}
 
@@ -278,7 +292,7 @@ class StateMachine:
                 self.solution_coverage = self.get_solution_coverage(program_file_name, bad_input)
         
         self.end_timer()
-
+        self.num_worse += 1
         print("Num tried: {}".format(self.num_tried))
         print("Num fixed: {}".format(self.num_fixed)) 
         return self.collect_fix_results(num_probes_made)
@@ -295,32 +309,7 @@ class StateMachine:
             results['FinalMinimizedSolution'] = deepcopy(self.minimized_input)
         results['InputHistory'] = deepcopy(self.input_history)
         return results
-
-    def wrap_up_scenario_log(self, scenario_config, num_probes_made):
-        self.log.write('\nSCENARIO {} WRAP_UP:\n'.format(scenario_config['UniqueId']))
-        self.log.write('Student Ip: {}\n'.format(scenario_config['ip']))
-        self.log.write('Found Solution: {}\n'.format(self.found_solution))
-        self.log.write('Number of Probes made: {}\n'.format(num_probes_made))
-        self.log.write('Start time: {}\n'.format(self.start_time))
-        self.log.write('End time: {}\n'.format(self.end_time))
-        self.log.write('Student bad input start time: {}\n'.format(scenario_config['TimeStamp']))
-        print(self.end_time)
-        # See if the student had a good input after the bad input
-        for correct_input in scenario_config['CorrectInputs']:
-            if correct_input[1] > scenario_config['TimeStamp']:
-                self.log.write('Student next fix time: {}\n'.format(correct_input[1]))
-                break
-        self.log.write('Original bad input: {}\n'.format(scenario_config['BadInput']))
-        self.log.write('Original Error Type: {}\n'.format(scenario_config["ErrorType"]))
-        if self.found_solution:
-            self.log.write('Final correct fix: \n{}\n'.format(json.dumps(self.final_input)))
-            self.log.write('Final correct minimized fix: \n{}\n'.format(json.dumps(self.minimized_input)))
-        self.log.write('Correct Student Inputs: \n{}'.format(json.dumps(scenario_config['CorrectInputs'])))
-        self.log.write("\nNum scenario tried: {}\n".format(self.num_tried))
-        self.log.write("Num scenario fixed: {}\n".format(self.num_fixed))
-        self.log.write('\n\n\n')
-
-    
+ 
     def get_solution_coverage(self, program_file_name, program_input):
         cov_file_name = self.gen_random_string(20)
         return test_coverage.get_coverage(program_file_name, program_input, cov_file_name, False)
@@ -331,7 +320,7 @@ class StateMachine:
         """
         inputs = '\n'.join(program_input) + '\n'
         
-        print('Program Input: {}'.format(program_input))
+        #print('Program Input: {}'.format(program_input))
         # Now run the program:
         run_result = None
         error_last_line = None
@@ -345,7 +334,7 @@ class StateMachine:
                     stderr=subprocess.PIPE,
                     universal_newlines=True)
         except Exception as e:
-            print(e.stderr)
+            #print(e.stderr)
             full_error = e.stderr
             important = e.stderr.strip().split('\n')[-1].strip()
             run_result = important[:important.find(':')]

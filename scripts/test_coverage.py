@@ -69,6 +69,7 @@ def report_coverage(coverage_file_name):
                 shell=True)
     except Exception as e:
         print(e)
+        return None
 
     # Here, go through the things
     report = str(report)
@@ -110,6 +111,9 @@ def get_coverage(filename, program_input, cov_file_name, care_about_errors=True)
     coverage_results = report_coverage(cov_file_name)
     # And erase the coverage record
     erase_coverage(cov_file_name)
+    if coverage_results is None:
+        return None
+
     for i in range(4):
         coverage_results[i] = int(coverage_results[i])
     coverage_results[4] = int(coverage_results[4][:-1])
