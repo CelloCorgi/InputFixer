@@ -80,11 +80,24 @@ def report_coverage(coverage_file_name):
     raw_coverage[-1] = raw_coverage[-1].strip()[:-3]
     return raw_coverage
 
-def run_program_with_coverage(program_file_name, program_input, coverage_file_name):
+def run_program_with_coverage(program_file_name, program_input, coverage_file_name, may_timeout=False):
     """
     This function runs coverage on the program with the given input
     """
     inputs = '\n'.join(program_input) + '\n'
+
+    if may_timeout:
+        try:
+            subprocess.run(['python3', program_file_name],
+                    check=True,
+                    timeout=5,
+                    input=inputs,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True)
+        except Exception as e:
+            print("IN TIMEOUT")
+            return -1
     
     # now run the program
     try:
@@ -98,14 +111,17 @@ def run_program_with_coverage(program_file_name, program_input, coverage_file_na
     except Exception as e:
         print('HERE')
         print(e) 
-        return -1
+        return None
 
-def get_coverage(filename, program_input, cov_file_name, care_about_errors=True):
+def get_coverage(filename, program_input, cov_file_name, care_about_errors=True, may_timeout=False):
     """
     This function returns a dictionary containing the coverage of the input
     """
-    x = run_program_with_coverage(filename, program_input, cov_file_name)
-    if care_about_errors and x == -1: return None
+    x = run_program_with_coverage(filename, program_input, cov_file_name, may_timeout)
+    if care_about_errors and x is None: return None
+
+    if may_timeout and x == -1:
+        return -1
 
     # And we analyze that coverage
     coverage_results = report_coverage(cov_file_name)

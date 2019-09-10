@@ -16,7 +16,28 @@ class InFix:
         This function finds all the fixes required by the initializing configuration
         Filter is an optional filter that says which sessions to consider
         """
-
+        
+        partial = "../../FinalRunsASE/500_2016.txt"
+        
+        # Load the partial
+        
+        with open(partial, 'r') as f:
+            f = iter(f)
+            to_return = []
+            for line in f:
+                try:
+                    if line.startswith('NEXT'):
+                        general_config = json.loads(next(f))
+                        experiment_results = json.loads(next(f))
+                        if len(experiment_results) == 0: print('hi')
+                        to_return.append((general_config, experiment_results))
+                except StopIteration:
+                    pass
+        
+        # Make dictionary of values
+        zzz = set()
+        for config, result in to_return:
+            zzz.add(config["UniqueId"])
         theories = self.config.get_theories()
         global_theory_config = [self.config.get_specific_theory_info(x) for x in theories]
         global_theory_factory = [theory_factory.get_theory_solver(i, global_theory_config[0], self.log) for i in theories]
@@ -25,8 +46,15 @@ class InFix:
         # Now, loop through all the files in path
         base_path = self.config.get_session_path()
         counter = 1
+        ak = 0
         for folder in os.listdir(base_path):
-
+            ak += 1
+            print("Number: {}".format(ak))
+            print(folder)            
+            # Check here if the folder has already been done by the thing in the config
+            if folder in zzz:
+                print("already_done")
+                continue
             # Open the additional file
             with open(os.path.join(base_path, folder, folder + '_additional_info.json'), 'r') as out:
                 session_config = json.loads(next(out))

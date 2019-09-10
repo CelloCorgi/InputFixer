@@ -13,25 +13,34 @@ import test_coverage
 import fixTheories.static_analysis as static_analysis
 
 class StateMachine:
-
     def __init__(self, global_config, log):
         """
-        This function is only run once when the first scenrio is run
+        This function is only run once when the first scenrio is run. It sets constants that remain the same for each scenario.
         """
+
+        # Print out the global config to the log so we have it
         log.write(str(global_config))
         self.log = log
+        
         #TODO: Make versions of representation, fault, fix, operators, and search stratagy
-        print(global_config)
         self.max_num_fix = global_config["MaxNumFix"]
         self.max_num_probe = global_config["MaxNumProbes"]
         self.testCoverage = global_config["UseCoverage"]
+        
+        # The number of scenarios that are tried and the number that are fixed
         self.num_tried = 0
         self.num_fixed = 0
+        
+        # I'm not sure if this is actually helpful? Should probably remove
         self.bad_input_cache = [''] #TODO: Add good input cache?
         self.num_worse = 0
+
+        # Maybe should remove this too
         self.string_literals = []
+        self.MIN_RAND_INT = -1
+        self.MAX_RAND_INT = 10
     
-    def init_scenario(self, session_config, isFirst):
+    def init_scenario(self, session_config, scenario_folder_path, isFirst):
         """
         This function initializes the specific run of a scenario
         isFirst says if this is the first run of the scenario -> there can be multiple runs
@@ -39,8 +48,14 @@ class StateMachine:
         """
         if isFirst:
             self.input_history = []
-            self.num_tried += 1
-        
+            self.num_tried += 1 
+
+            # This gets the values held in the split calls in the program
+            tokens = static_analysis.tokenize_program(os.path.join(scenario_folder_path, session_config['UniqueId'] + '_code.py'))
+            self.split_values = static_analysis.collect_splits(tokens)
+            self.string_literals = static_analysis.collect_string_literals(tokens)
+
+            # Might be deleating this
             if len(session_config["BadInput"]) > 15:
                 self.bad_input_cache.extend(session_config["BadInput"][:15])
             elif session_config["BadInput"][-1] == '':
@@ -48,11 +63,12 @@ class StateMachine:
             else:
                 self.bad_input_cache.extend(session_config["BadInput"])
             self.cache = {str(session_config["BadInput"])}
-            
+            self.found_at_least_one_solution = False
+        else:
+            # Otherwise, initialize it to just having the original bad input
+            self.input_history = [deepcopy(session_config["BadInput"])]
         self.found_solution = False
         self.coverage_info = session_config["CoverageInfo"]
-        self.string_literals = []
-        
     
     def fix(self, scenario_config, scenario_folder_path, log):
         """
@@ -66,7 +82,7 @@ class StateMachine:
         self.log.write('{}\n'.format(json.dumps(scenario_config)))
 
         # Initialize the scenario run
-        self.init_scenario(scenario_config, True)
+        self.init_scenario(scenario_config, scenario_folder_path, True)
         
         # If we don't need to use coverage
         if not self.testCoverage:
@@ -78,8 +94,9 @@ class StateMachine:
             results = []
             for i in range(self.testCoverage):
                 results.append(self.fix_body(scenario_config, scenario_folder_path, log))
-                self.init_scenario(scenario_config, False)
+                self.init_scenario(scenario_config, scenario_folder_path, False)
 
+        """
         # This is the two phase approach where I do random, then for the rest of the budget try improving coverage
         elif self.testCoverage == "TwoPhase":
             pass
@@ -96,6 +113,7 @@ class StateMachine:
                 results = self.fix_body(scenario_config, scenario_folder_path, log) 
                 print(self.num_worse)
                 results['GrammarTemplateUsed'] = False
+        """
 
         # Log the results
         self.log.write('{}\n'.format(json.dumps(results)))
@@ -106,14 +124,10 @@ class StateMachine:
         TODO: Make it find all instances if possible?
         """
         
+        # TODO: make this better
         stripped_error = error_message.strip()
-        #stripped_error = stripped_errpr[stripped_error.find('Error:'):]
-        last_element = stripped_error[-1]
-        
+        last_element = stripped_error[-1] 
         to_look_for = stripped_error[stripped_error.find(last_element)+1:-1]
-        #print(stripped_error)
-        #print('to look for: ' + str(to_look_for))
-        #print(len(to_look_for))
 
         for i, e in reversed(list(enumerate(bad_input))):
             if len(to_look_for) == 0 and len(e) == 0:
@@ -128,18 +142,20 @@ class StateMachine:
         return rand_row, 0, len(bad_input[rand_row])
 
     def start_timer(self):
-        #self.start_time = datetime.utcnow() 
         self.start_time = time.time()
 
     def end_timer(self):
-        #self.end_time = datetime.utcnow()
         self.end_time = time.time()
 
-    def scan_input_for_type(self, bad_input, type_t, findAll=False):
+    def get_join_val(self):
         """
-        This function returns the last element in the bad input to have that type (or all if findAll is true)
+        This function returns a value inside of a split call in the
+        program if a split call exists there
         """
-        pass
+        if len(self.split_values) == 0: return ' '
+        to_return = random.choice(self.split_values)
+        if to_return is None: return ' '
+        return to_return
 
     def gen_random_string(self, length):
         if len(self.string_literals) > 0 and random.choice('01') == '1':
@@ -158,41 +174,41 @@ class StateMachine:
             return bad_input
         
         operation_line = random.randint(0, len(bad_input) - 1)
+        split_val = self.get_join_val()
 
         # Now, see if this line can be broken into tokens
-        split_version = bad_input[operation_line].split()
+        #TODO: deal with splitting this some ways
+        split_version = bad_input[operation_line].split(split_val)
         #TODO: MAKE THIS MORE EFFICIENT
         if len(split_version) <= 1:
             # Then here, we either add, delete, or swap
-            operation_choice = random.randint(0, 5)
-            if operation_choice == 0:
+            operation_choice = random.randint(0, 4)
+            if operation_choice == 0: #Empties all input
                 bad_input = []
-            elif operation_choice == 1:
+            elif operation_choice == 1: #Fully removes a random line
                 bad_input.pop(operation_line)
-            elif operation_choice == 2:
-                bad_input.insert(operation_line, random.choice(bad_input + self.input_history[0] + self.input_history[0] + self.input_history[0] + self.string_literals))
-            elif operation_choice == 3:
-                bad_input.insert(operation_line, random.choice(self.bad_input_cache))
-            elif operation_choice == 4:
+            elif operation_choice == 2: # Inserts a new line with either a random element from the original buggy input or a string literal from the program
+                bad_input.insert(operation_line, random.choice(bad_input + self.input_history[0] + self.string_literals))
+            elif operation_choice == 3: #inserts a new line with a random string
                 bad_input.insert(operation_line, self.gen_random_string(3))
-            elif operation_choice == 5:
-                bad_input[operation_line] = bad_input[operation_line] + ' ' + self.gen_random_string(3)
+            elif operation_choice == 4: #adds a random string token at the end of the line
+                bad_input[operation_line] = bad_input[operation_line] + split_val + self.gen_random_string(3)
         else:
             operation_choice = random.randint(0, 4)
-            if operation_choice == 0:
+            if operation_choice == 0: #Makes a random line blank
                 bad_input[operation_line] = ''
             elif operation_choice == 1:
-                bad_input.pop(operation_line)
+                bad_input.pop(operation_line) #Replaces a random line with multiple lines split on whitespace
                 bad_input[operation_line:operation_line] = split_version
-            elif operation_choice == 2:
+            elif operation_choice == 2: # Replaces a token with a random string from the past or a string literal
                 split_version[random.randint(0, len(split_version) - 1)] = random.choice(bad_input + self.input_history[0] + self.string_literals)
-                bad_input[operation_line] = ' '.join(split_version)
-            elif operation_choice == 3:
+                bad_input[operation_line] = split_val.join(split_version)
+            elif operation_choice == 3: # Same as last, but random string
                 split_version[random.randint(0, len(split_version) - 1)] = self.gen_random_string(3)
-                bad_input[operation_line] = ' '.join(split_version)
-            elif operation_choice == 4:
-                split_version[random.randint(0, len(split_version) - 1)] = random.choice(self.bad_input_cache)
-                bad_input[operation_line] = ' '.join(split_version)
+                bad_input[operation_line] = split_val.join(split_version)
+            #elif operation_choice == 4:
+            #    split_version[random.randint(0, len(split_version) - 1)] = random.choice(self.bad_input_cache)
+            #    bad_input[operation_line] = split_val.join(split_version)
 
         return bad_input
 
@@ -215,65 +231,75 @@ class StateMachine:
         self.start_timer()
         
         while num_fixes_found < self.max_num_fix and num_probes_made < self.max_num_probe:
-            #print('message was: ' + last_error_type)
+            print('message was: ' + last_error_type)
             if last_error_type == "" or last_error_type == ":":
-                #print('ERROR -> message was: ' + last_error_type)
+                print('ERROR -> message was: ' + last_error_type)
                 num_probes_made = self.max_num_probe
                 return {}
 
             self.input_history.append(deepcopy(bad_input))
             
+            x = random.randint(0,1)
             # This section applies the error message templateas
             #TODO: Put in own function
-            if last_error_type  == "ValueError":
+            if last_error_type  == "ValueError" and x == 1:
                 #TODO: Don't have this fault location always be the last input line
                 # First look for values to unpack
                 if last_error_message.find('too many values to unpack') >= 0:
-                    split_last = bad_input[-1].strip().split()
-                    bad_input[-1] = ' '.join(split_last[:-1])
+                    #TODO: add in static for split
+                    if len(bad_input) == 0:
+                        bad_input.append(self.gen_random_string(3) + ' ' + self.gen_random_string(3))
+                    split_val = self.get_join_val()
+                    split_last = bad_input[-1].strip().split(split_val)
+                    bad_input[-1] = split_val.join(split_last[:-1])
 
                 elif last_error_message.find("not enough values to unpack") >= 0:
-                    if len(bad_input) == 0: bad_input.append('')
-                    split_last = bad_input[-1].strip().split()
-                    if len(split_last) > 15:
-                        bad_input = bad_input[:-1]
+                    split_val = self.get_join_val()
+                    if len(bad_input) == 0:
+                        bad_input.append(self.gen_random_string(3) + split_val + self.gen_random_string(3))
+                        #bad_input.append('')
+                    split_last = bad_input[-1].strip().split(split_val)
                     
+                    # Likely the error refers to an earlier part of bad input
+                    if len(split_last) > self.MAX_RAND_INT:
+                        bad_input = bad_input[:-1]
                     else:
                         if len(split_last) > 0:
                             split_last.append(split_last[-1])
                         else:
                             split_last = [self.gen_random_string(3)]
-                        bad_input[-1] = ' '.join(split_last)
+                        bad_input[-1] = split_val.join(split_last)
 
                 elif last_error_message.find("invalid literal for int()") >= 0:
                     if len(bad_input) == 0:
-                        bad_input = [str(random.randint(-1, 15))]
+                        bad_input = [str(random.randint(self.MIN_RAND_INT, self.MAX_RAND_INT))]
                     else:
-                        #TODO: DEAL WIITH TEMPLATE
                         line, i, l = self.find_location_in_input(bad_input, last_error_message)
-                        bad_input[line] = bad_input[line][:i] + str(random.randint(0, 10)) + bad_input[line][i + l:]
+                        bad_input[line] = bad_input[line][:i] + str(random.randint(self.MIN_RAND_INT, self.MAX_RAND_INT)) + bad_input[line][i + l:]
 
                 elif last_error_message.find("could not convert string to float") >= 0:
                     # First, localize the error
                     if len(bad_input) == 0:
-                        bad_input = [str(random.randint(-1, 15)) + '.' + str(random.randint(0, 100))]
+                        bad_input = [str(random.randint(self.MIN_RAND_INT, self.MAX_RAND_INT)) + '.' + str(random.randint(0, 10))]
                     else:
-                        #TODO: DEAL WIITH TEMPLATE
                         line, i, l = self.find_location_in_input(bad_input, last_error_message)
-                        bad_input[line] = bad_input[line][:i] + str(random.randint(-1, 15)) + '.' + str(random.randint(0, 100))+ bad_input[line][i + l:]
+                        bad_input[line] = bad_input[line][:i] + str(random.randint(self.MIN_RAND_INT, self.MAX_RAND_INT)) + '.' + str(random.randint(0, 10))+ bad_input[line][i + l:]
 
-            elif last_error_type == "EOFError":
+            elif last_error_type == "EOFError" and x == 1:
                 # In this case, repete the last line
                 # TODO: Make this work better in the future
                 if len(bad_input) > 0:
                     bad_input.append(random.choice(bad_input + self.input_history[0] + [self.gen_random_string(3)]))
                 else:
                     bad_input.append(self.gen_random_string(3))
-            
+
             # This section applies the random mutation templates as needed
+            
             while str(bad_input) in self.cache:
                 bad_input = self.random_mutation(bad_input)
-
+            
+            if str(bad_input) in self.cache:
+                break
             # Ok, now add the modified version back into the cache
             self.cache.add(str(bad_input))
             num_probes_made += 1
@@ -286,9 +312,11 @@ class StateMachine:
                 num_fixes_found += 1
                 print("SOLVED THE ERROR")
                 self.found_solution = True
+                if not self.found_at_least_one_solution:
+                    self.num_fixed += 1
+                self.found_at_least_one_solution = True
                 self.final_input = bad_input
                 self.minimized_input = self.minimize(program_file_name, deepcopy(bad_input))
-                self.num_fixed += 1
                 self.solution_coverage = self.get_solution_coverage(program_file_name, bad_input)
         
         self.end_timer()
@@ -320,7 +348,7 @@ class StateMachine:
         """
         inputs = '\n'.join(program_input) + '\n'
         
-        #print('Program Input: {}'.format(program_input))
+        print('Program Input: {}'.format(program_input))
         # Now run the program:
         run_result = None
         error_last_line = None
@@ -334,7 +362,7 @@ class StateMachine:
                     stderr=subprocess.PIPE,
                     universal_newlines=True)
         except Exception as e:
-            #print(e.stderr)
+            print(e.stderr)
             full_error = e.stderr
             important = e.stderr.strip().split('\n')[-1].strip()
             run_result = important[:important.find(':')]
@@ -347,7 +375,7 @@ class StateMachine:
         Assumes program_input is a working input
         """
         
-        if (len(program_input)) == 0:
+        if (len(program_input)) <= 1:
             return program_input
 
         result, _, _ = self.try_program(program_file_name, program_input[:-1])
