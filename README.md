@@ -1,6 +1,6 @@
 # InFix
 
-This research project aims to automatically fix error-inducing command-line inputs for novice Python programs. The main dataset used for both the development and research of this project comes from Python Tutor, a free online interpreter that helps novices visualize their code. In general, InFix finds repairs using a template-based randomized search algorithm. The work is explained in detail in the research paper InFix: Automatically Repairing Novice Program Inputs, ASE 2019. Please refer to the paper for more detailed information about the algorithm and insights behind InFix. You may also contact Madeline Endres (endremad@umich.edu) if you have questions about the work.
+This research project aims to automatically fix error-inducing command-line inputs for novice Python programs. The main dataset used for both the development and research of this project comes from Python Tutor, a free online interpreter that helps novices visualize their code. In general, InFix finds repairs using a template-based randomized search algorithm. The work is explained in detail in the research paper _InFix: Automatically Repairing Novice Program Inputs, ASE 2019_. Please refer to the paper for more detailed information about the algorithm and insights behind InFix. You may also contact Madeline Endres (endremad@umich.edu) if you have questions about the work.
 
 
 ## Quick Start
