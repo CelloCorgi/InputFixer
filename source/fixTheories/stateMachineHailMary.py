@@ -31,7 +31,6 @@ class StateMachine:
         self.num_tried = 0
         self.num_fixed = 0
         
-        # I'm not sure if this is actually helpful? Should probably remove
         self.bad_input_cache = [''] #TODO: Add good input cache?
         self.num_worse = 0
 
@@ -89,7 +88,6 @@ class StateMachine:
             results = self.fix_body(scenario_config, scenario_folder_path, log)
 
         # If we want to use the best coverage of multiple runs:
-        #TODO: Actually make parellel
         elif isinstance(self.testCoverage, int):
             results = []
             for i in range(self.testCoverage):

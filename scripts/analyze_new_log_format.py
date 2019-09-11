@@ -98,6 +98,7 @@ def analyze_student_fix_coverage(results):
     for general_config, experiment_results in results:
         #print(experiment_results)
         # print out the file
+        #FIXME: CHANGE EACH RUN
         filename = '/home/endremad/Projects/Python_Tutor_Input_Experiments/PythonTutor_Input_Data_Sessions_2015/' + general_config['UniqueId'] + '/' + general_config['UniqueId'] + '_code.py'
         cov_file_name = 'hfhhgurweufheufhwef'
         
