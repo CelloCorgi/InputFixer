@@ -5,6 +5,13 @@ This research project aims to automatically fix error-inducing command-line inpu
 
 ## Quick Start
 
+
+Unfortunately, we cannot resease the original data used in the ASE paper due to privacy concerns. However, as of spring 2022, we have added a small subset of example programs. To run InFix on these example programs, run the following from the source folder:
+
+`python3.5 driver.py ../test_config_inputs/example_test_config.json`
+
+This will run InFix with 2 different random seeds for each program. Each run will have 6 probes. There is an example log of a run of this program available in the exampleLogs folder. We note that this number of side-by-side runs and number of probes in this example is lower than that in the ASE paper evaluation.
+
 ### Package Dependencies 
 
 InFix was written and evaluated using Python 3.5.2.

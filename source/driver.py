@@ -30,7 +30,7 @@ def load_configuration(file_name):
         sys.exit()
     try:
         with open(file_name, 'r') as config_file:
-            return Config(json.loads(next(config_file)))
+            return Config(json.load(config_file))
     except:
         print("Unable to load provided config file. Terminating program execution.\n")
         sys.exit()
