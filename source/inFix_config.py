@@ -12,6 +12,13 @@ class Config:
         self.log_folder_path = config_dictionary["LogFolderPath"]
         self.fix_empty = config_dictionary["FixEmptyLastInputs"]
 
+        # See if the configuration file specifies a partial run we are building off of
+        self.partial_file = None
+        try:
+            self.partial_file = config_dictionary["PartialResultsFile"]
+        except KeyError:
+            self.partial_file = None
+    
     def get_theories(self):
         """
         Returns the list of theories this config will use to find fixes

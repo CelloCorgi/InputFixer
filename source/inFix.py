@@ -17,22 +17,26 @@ class InFix:
         Filter is an optional filter that says which sessions to consider
         """
         
-        partial = "../../FinalRunsASE/500_2016.txt"
-        
-        # Load the partial
-        
-        with open(partial, 'r') as f:
-            f = iter(f)
-            to_return = []
-            for line in f:
-                try:
-                    if line.startswith('NEXT'):
-                        general_config = json.loads(next(f))
-                        experiment_results = json.loads(next(f))
-                        if len(experiment_results) == 0: print('hi')
-                        to_return.append((general_config, experiment_results))
-                except StopIteration:
-                    pass
+        # See if the config file is indicating that this run is resuming a previous partial run
+
+        to_return = []
+
+        # Load the partial file if there is one
+        if self.config.partial_file is not None:
+            with open(self.config.partial_file, 'r') as f:
+                f = iter(f)
+                to_return = []
+                for line in f:
+                    try:
+                        if line.startswith('NEXT'):
+                            general_config = json.loads(next(f))
+                            experiment_results = json.loads(next(f))
+                            if len(experiment_results) == 0: 
+                                print("This experiment was not actually completed")
+                                continue
+                            to_return.append((general_config, experiment_results))
+                    except StopIteration:
+                        pass
         
         # Make dictionary of values
         zzz = set()
